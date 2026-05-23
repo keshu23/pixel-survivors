@@ -1,0 +1,6 @@
+{
+  "name": "Pixel Survivors",
+  "description": "A highly addictive, dark fantasy top-down survival game. Swarm against thousands of monsters, choose randomized power-ups, evolve weapons, unlock retro characters, and survive the endless night with juice-heavy particle explosions, screen shakes, and custom synthesized chiptune audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
