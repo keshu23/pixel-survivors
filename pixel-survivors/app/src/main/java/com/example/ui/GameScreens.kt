@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -49,6 +50,17 @@ fun PixelSurvivorsConsole(
     val topScores by viewModel.topHighscores.collectAsState()
     val unlocks by viewModel.characterUnlocks.collectAsState()
     val statsList by viewModel.powerUps.collectAsState()
+
+    var showExitConfirm by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = currentScreen !is Screen.MainMenu) {
+        when (currentScreen) {
+            is Screen.MainMenu -> { /* not reachable since handler is disabled */ }
+            is Screen.CharacterSelect, is Screen.Shop, is Screen.Highscores, is Screen.GameOver ->
+                viewModel.navigateTo(Screen.MainMenu)
+            is Screen.Play -> showExitConfirm = true
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -101,7 +113,7 @@ fun PixelSurvivorsConsole(
                         PlayScreen(
                             engine = engine,
                             onPauseToggle = { engine.isPaused = !engine.isPaused },
-                            onExitGame = { viewModel.navigateTo(Screen.MainMenu) }
+                            onExitGame = { showExitConfirm = true }
                         )
                     } ?: Box(
                         modifier = Modifier.fillMaxSize(),
@@ -121,6 +133,72 @@ fun PixelSurvivorsConsole(
                 }
             }
         }
+    }
+
+    if (showExitConfirm) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirm = false },
+            shape = RoundedCornerShape(20.dp),
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFFFB4AB),
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Abandon Run?",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 20.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "All progress in this run will be lost forever.\nAre you sure you want to exit?",
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.SansSerif,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirm = false
+                        viewModel.navigateTo(Screen.MainMenu)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFB3261E),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                ) {
+                    Text("YES, ABANDON", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showExitConfirm = false },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD0BCFF)),
+                    border = BorderStroke(1.dp, Color(0xFF49454F)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                ) {
+                    Text("CANCEL", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            },
+            containerColor = Color(0xFF1C1B1F),
+            titleContentColor = Color(0xFFE6E1E5),
+            textContentColor = Color(0xFFCAC4D0)
+        )
     }
 }
 
@@ -1016,7 +1094,7 @@ fun PlayScreen(
                 }
 
                 // B. Draw Gems on Ground
-                for (gem in engine.gems) {
+                for (gem in engine.gems.toList()) {
                     if (gem.isGold) {
                         // Golden circle coin with cross star
                         drawCircle(color = Color(0xFFFFD54F), radius = gem.size, center = Offset(gem.x, gem.y))
@@ -1035,7 +1113,7 @@ fun PlayScreen(
                 }
 
                 // C. Draw swarming monsters
-                for (enemy in engine.enemies) {
+                for (enemy in engine.enemies.toList()) {
                     val frameOffset = (frameTick / 100) % 4
                     val animateY = if (enemy.enemyType == EnemyType.BAT) sin(frameOffset.toFloat()) * 4f else 0f
 
@@ -1086,7 +1164,7 @@ fun PlayScreen(
                 }
 
                 // D. Draw Auto-attacking Neon Projectiles
-                for (proj in engine.projectiles) {
+                for (proj in engine.projectiles.toList()) {
                     when (proj.type) {
                         WeaponType.MAGIC_WAND, WeaponType.HOLY_SCEPTER -> {
                             // Blue neon plasma trailing bullets
@@ -1150,7 +1228,7 @@ fun PlayScreen(
                 }
 
                 // E. Draw Particles Systems (Neon Explosions!)
-                for (p in engine.particles) {
+                for (p in engine.particles.toList()) {
                     val fadeVal = p.remainingLifespan / p.maxLifespan
                     drawCircle(
                         color = p.color.copy(alpha = fadeVal),
@@ -1201,7 +1279,7 @@ fun PlayScreen(
                 )
 
                 // G. Draw Floating text damages
-                for (t in engine.floatingTexts) {
+                for (t in engine.floatingTexts.toList()) {
                     val alpha = t.remainingLifespan / t.maxLifespan
                     // Note: Draw floating indicators procedurally inside Canvas is lighter on CPU than Compose Box tree overlays!
                     // Simple text render via draw text, but since raw compose native fonts require Paint, we can represent float text in standard draw scopes! Well, actually drawing them as Custom UI texts is simpler and looks better. Let's do that cleanly.
@@ -1210,7 +1288,7 @@ fun PlayScreen(
         }
 
         // FLOATING DAMAGING CANVAS TEXTS (rendered over in simple lightweight box elements)
-        for (t in engine.floatingTexts) {
+        for (t in engine.floatingTexts.toList()) {
             val progress = t.remainingLifespan / t.maxLifespan
             Box(
                 modifier = Modifier
@@ -1369,7 +1447,7 @@ fun PlayScreen(
                         .background(Color(0xFF49454F), CircleShape)
                 ) {
                     Icon(
-                        imageVector = if (engine.isPaused) Icons.Default.PlayArrow else Icons.Default.Close,
+                        imageVector = if (engine.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                         contentDescription = "Pause",
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
